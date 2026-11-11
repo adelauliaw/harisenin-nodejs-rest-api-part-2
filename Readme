@@ -1,9 +1,25 @@
-# Student Management System — Phase 2 Live Coding (XAMPP Edition)
+# Student Management System — Panduan index.html dan XAMPP
 
 Panduan praktik membangun aplikasi CRUD mahasiswa menggunakan **XAMPP (MariaDB/MySQL-compatible) + phpMyAdmin + Node.js + Express + Sequelize + HTML/CSS/Vanilla JavaScript**.
 
 > Catatan penting: XAMPP umumnya membundel MariaDB sebagai pengganti MySQL. MariaDB kompatibel dengan protokol dan driver MySQL untuk praktik dasar ini. Di materi kelas, sebut secara akurat: "MariaDB yang disertakan dalam XAMPP, kompatibel dengan MySQL". Sequelize dapat mengaksesnya melalui dialect `mysql`.
 
+
+README ini disesuaikan dengan file **`index (47).html`** yang disediakan. File tersebut berisi frontend lengkap dalam satu file: HTML, CSS, dan Vanilla JavaScript. Untuk penyajian melalui Apache, salin dan beri nama `index.html`.
+
+**Status berkas:** frontend tersedia; backend Express, model, migration, `package.json`, dan konfigurasi database tidak disertakan dalam dua berkas sumber. Bagian backend di bawah adalah panduan kontrak dan persiapan yang perlu diimplementasikan, bukan klaim bahwa backend sudah tersedia atau sudah diuji.
+
+### Fitur yang sudah ada pada index
+
+- Form tambah dan edit mahasiswa; tombol **Batal** keluar dari mode edit dan mengosongkan form.
+- Tabel berisi nomor urut, nama dan email, nomor mahasiswa, program studi, serta tombol **Edit** dan **Hapus**.
+- Konfirmasi browser sebelum menghapus data.
+- Pencarian lokal tanpa membedakan huruf besar/kecil berdasarkan nama, email, nomor mahasiswa, dan program studi. Placeholder hanya menyebut nama/email, tetapi kode mencari semua field tersebut.
+- Jumlah hasil dalam format `X dari Y mahasiswa`; tombol **Refresh** mengambil ulang data dari API.
+- Indikator koneksi berdasarkan hasil GET daftar mahasiswa, serta notifikasi sukses/gagal yang ditutup otomatis setelah 4,5 detik.
+- Tampilan satu kolom pada lebar layar maksimal 850 px dan tabel yang dapat digulir horizontal.
+
+Frontend tidak menyimpan data secara permanen di browser. Variabel `students` hanya menampung hasil GET sementara; persistence harus disediakan oleh backend dan database.
 ## 1. Hasil akhir
 
 Peserta akan membuat aplikasi Student Management System yang dapat digunakan melalui browser untuk:
@@ -37,7 +53,7 @@ Sebelum kelas:
 
 1. Install XAMPP.
 2. Buka XAMPP Control Panel.
-3. Start **MySQL**. Start Apache jika ingin menyajikan frontend melalui `http://localhost`.
+3. Start **MySQL** dan **Apache**. Apache diperlukan untuk membuka phpMyAdmin dan menyajikan frontend pada alur panduan ini.
 4. Buka `http://localhost/phpmyadmin`.
 5. Pastikan Node.js dan npm tersedia:
    ```bash
@@ -56,7 +72,7 @@ Sebelum kelas:
 
 ## 4. Membuat database melalui phpMyAdmin
 
-1. Start MySQL dari XAMPP Control Panel.
+1. Start MySQL dan Apache dari XAMPP Control Panel.
 2. Buka `http://localhost/phpmyadmin`.
 3. Pilih **New**.
 4. Buat database bernama `student_management`.
@@ -127,9 +143,10 @@ DB_PASSWORD=
 
 Password kosong hanya berlaku jika instalasi lokal XAMPP peserta memang menggunakan konfigurasi default tanpa password. Jika root diberi password, isi `DB_PASSWORD` dengan password lokal tersebut.
 
-Contoh konfigurasi Sequelize:
+Contoh konfigurasi Sequelize (memerlukan dependency `dotenv`, `sequelize`, dan driver `mysql2` di backend):
 
 ```js
+require("dotenv").config();
 const { Sequelize } = require("sequelize");
 
 const sequelize = new Sequelize(
@@ -187,19 +204,49 @@ Contoh response GET yang direkomendasikan:
 }
 ```
 
-Jika nama endpoint, nama field, atau format response backend berbeda, sesuaikan kontrak backend atau konstanta/fungsi di `frontend/index.html`.
+Jika nama endpoint, nama field, atau format response backend berbeda, sesuaikan kontrak backend atau konstanta/fungsi di `index.html`.
+
+### Format respons yang benar-benar didukung index
+
+Fungsi `extractList()` menerima tiga bentuk respons GET:
+
+```json
+[{ "id": 1, "student_number": "2026001", "full_name": "Alya Putri", "email": "alya@example.com", "major": "Informatika" }]
+```
+
+atau objek `{ "data": [...] }`, atau `{ "students": [...] }`. Format lain akan menghasilkan daftar kosong meskipun HTTP berhasil. Setiap mahasiswa harus memiliki `id` stabil untuk operasi edit/hapus. Field `name` dapat menjadi fallback tampilan nama, tetapi POST/PUT selalu mengirim `full_name`.
+
+Respons POST/PUT tidak digunakan untuk mengisi tabel: setelah berhasil, frontend melakukan GET ulang. DELETE dapat mengembalikan `204 No Content`. Untuk error, kirim status HTTP non-2xx dengan JSON seperti:
+
+```json
+{ "message": "Nomor mahasiswa atau email sudah digunakan." }
+```
+
+`apiRequest()` memilih pesan dari `message`, lalu `error`, lalu pesan status HTTP. Gunakan nilai string untuk kedua field pesan tersebut. Status yang disarankan adalah GET/PUT `200`, POST `201`, DELETE `204`, validasi `400`, data tidak ditemukan `404`, duplikat `409`, dan kegagalan server `500`; status-status ini perlu diterapkan di backend.
+
+### Validasi sesuai form
+
+| Field | Aturan pada frontend |
+|---|---|
+| `student_number` | Wajib, maksimal 30 karakter |
+| `full_name` | Wajib, maksimal 100 karakter |
+| `email` | Wajib, input bertipe email, maksimal 150 karakter |
+| `major` | Wajib, maksimal 100 karakter |
+
+JavaScript memangkas spasi di awal/akhir dan menolak field yang kosong setelah dipangkas. Keunikan nomor mahasiswa/email **belum diperiksa frontend**; backend harus memvalidasi input kembali dan database harus menerapkan constraint UNIQUE.
 
 ## 8. Menjalankan backend
 
-1. Pastikan MySQL XAMPP sudah Start.
-2. Pastikan database `student_management` sudah dibuat.
-3. Jalankan migration Sequelize sesuai konfigurasi project.
-4. Jalankan server Express, misalnya:
+1. Siapkan atau implementasikan backend Express dengan empat endpoint pada bagian 7. Pasang middleware `express.json()` sebelum route agar body POST/PUT terbaca.
+2. Pastikan MySQL XAMPP sudah Start.
+3. Pastikan database `student_management` sudah dibuat.
+4. Jalankan migration Sequelize sesuai konfigurasi project.
+5. Jalankan server Express memakai script yang tersedia pada `package.json` backend, misalnya jika script `dev` sudah didefinisikan:
    ```bash
    npm run dev
    ```
-5. Pastikan terminal menunjukkan backend aktif pada port `3000`.
-6. Uji GET `/api/students` melalui Postman sebelum membuka frontend.
+6. Pastikan terminal menunjukkan backend aktif pada port `3000`.
+7. Uji GET `/api/students` melalui Postman sebelum membuka frontend.
 
 Contoh URL API yang digunakan frontend:
 
@@ -211,8 +258,8 @@ http://localhost:3000/api/students
 
 Agar frontend memiliki origin yang konsisten dan tidak dibuka sebagai `file://`:
 
-1. Salin folder `frontend` dari kit ini.
-2. Tempelkan ke folder `C:\xampp\htdocs\student-management\`.
+1. Buat folder `C:\xampp\htdocs\student-management\`.
+2. Salin file `index (47).html` ke folder tersebut, lalu ubah nama salinannya menjadi `index.html`.
 3. Pastikan file berada di:
    ```text
    C:\xampp\htdocs\student-management\index.html
@@ -241,7 +288,7 @@ Jika menggunakan port Apache non-default atau virtual host, sesuaikan origin den
 
 ## 10. Konfigurasi URL frontend
 
-Di `frontend/index.html`, cari:
+Di `index.html`, cari:
 
 ```js
 const API_BASE_URL = "http://localhost:3000/api";
@@ -250,7 +297,31 @@ const STUDENTS_ENDPOINT = `${API_BASE_URL}/students`;
 
 Ubah jika backend memakai host atau port berbeda.
 
-## 11. Panduan live coding tutor — 120 menit
+## 11. Cara memakai frontend
+
+1. Jalankan database, backend, dan Apache, kemudian buka `http://localhost/student-management/`.
+2. Saat halaman dibuka, `loadStudents()` otomatis mengambil daftar. Pastikan indikator menampilkan **API terhubung**.
+3. Isi empat field dan klik **Simpan mahasiswa**. Tombol simpan dinonaktifkan selama proses request.
+4. Ketik kata kunci untuk menyaring data yang sudah dimuat; klik **Refresh** untuk mengambil data terbaru dari server.
+5. Klik **Edit** pada baris yang dipilih. Form berubah menjadi **Edit mahasiswa**; ubah data dan klik **Simpan perubahan**, atau klik **Batal**.
+6. Klik **Hapus**, lalu setujui dialog konfirmasi untuk menghapus mahasiswa yang dipilih.
+7. Periksa tabel `students` di phpMyAdmin. Restart backend lalu Refresh untuk menguji persistence.
+
+### Peta fungsi JavaScript
+
+| Fungsi | Peran |
+|---|---|
+| `apiRequest()` | Mengirim fetch, membaca respons, dan melempar error untuk HTTP gagal |
+| `extractList()` | Mengambil array mahasiswa dari tiga format respons |
+| `loadStudents()` | GET daftar, memperbarui status koneksi, lalu merender tabel |
+| `renderStudents()` | Memfilter data lokal dan membentuk isi tabel |
+| `escapeHtml()` | Meng-escape nilai sebelum dimasukkan ke HTML tabel |
+| `fillForm()` / `resetForm()` | Memasuki mode edit / mengembalikan form ke mode tambah |
+| `showNotice()` / `setApiStatus()` | Memperbarui notifikasi dan indikator koneksi |
+
+`extractOne()` ada di sumber tetapi belum dipanggil. Edit menggunakan data yang sudah dimuat; index tidak membutuhkan endpoint GET `/api/students/:id`. Indikator koneksi hanya diperbarui saat pengambilan daftar, bukan pemeriksaan kesehatan database secara terpisah.
+
+## 12. Panduan live coding tutor — 120 menit
 
 | Menit | Materi dan demo | Hasil |
 |---|---|---|
@@ -269,7 +340,7 @@ Ubah jika backend memakai host atau port berbeda.
 
 **Saran tutor:** siapkan starter backend dan dependency sebelum kelas. Waktu 120 menit terlalu singkat jika peserta harus menginstal semua tools dan membangun backend dari nol. HTML final disediakan sebagai target; ajarkan bagian JavaScript/fetch secara bertahap.
 
-## 12. Urutan live coding frontend
+## 13. Urutan live coding frontend
 
 ### GET — membaca data
 
@@ -321,7 +392,7 @@ await fetch("http://localhost:3000/api/students/1", {
 
 Setelah operasi berhasil, panggil kembali fungsi GET untuk memperbarui tabel browser.
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | Masalah | Pemeriksaan |
 |---|---|
@@ -334,10 +405,11 @@ Setelah operasi berhasil, panggil kembali fungsi GET untuk memperbarui tabel bro
 | `400 Bad Request` | Request body atau validasi salah |
 | `409 Conflict` | Nomor mahasiswa/email sudah terpakai |
 | `500 Internal Server Error` | Periksa log backend, model, migration, dan query |
-| Data tidak tampil | Periksa struktur JSON dan nama field |
+| Data tidak tampil meskipun API terhubung | Pastikan respons GET berupa array, `{ data: [...] }`, atau `{ students: [...] }`; periksa filter pencarian |
+| phpMyAdmin tidak terbuka | Pastikan Apache aktif dan port URL sesuai konfigurasi |
 | Data hilang setelah restart | Pastikan data disimpan di database, bukan array memori |
 
-## 14. Exit ticket
+## 15. Exit ticket
 
 1. Apa perbedaan XAMPP, MariaDB, dan phpMyAdmin?
 2. Apakah Node.js membutuhkan Apache untuk menjalankan Express?
@@ -347,7 +419,7 @@ Setelah operasi berhasil, panggil kembali fungsi GET untuk memperbarui tabel bro
 6. Apa fungsi `fetch()`?
 7. Mengapa data tetap ada setelah backend direstart?
 
-## 15. Checklist keberhasilan
+## 16. Checklist keberhasilan
 
 - [ ] MySQL/MariaDB XAMPP aktif.
 - [ ] phpMyAdmin dapat dibuka.
@@ -357,11 +429,16 @@ Setelah operasi berhasil, panggil kembali fungsi GET untuk memperbarui tabel bro
 - [ ] POST menambah mahasiswa.
 - [ ] PUT mengubah mahasiswa.
 - [ ] DELETE menghapus mahasiswa.
-- [ ] Validasi input berjalan.
+- [ ] Pencarian, jumlah hasil, Refresh, dan Batal berfungsi.
+- [ ] Konfirmasi Hapus berfungsi.
+- [ ] Validasi input frontend dan backend berjalan; duplikat ditolak database.
 - [ ] Data terlihat di phpMyAdmin.
 - [ ] Frontend dapat diakses melalui Apache.
 - [ ] Data tetap ada setelah backend direstart.
 
 ---
 
-**Batasan starter:** `frontend/index.html` adalah frontend siap pakai. Operasi CRUD tetap memerlukan backend Express yang berjalan dan mengikuti kontrak API di atas.
+**Batasan starter:** `index.html` adalah frontend siap pakai. Operasi CRUD tetap memerlukan backend Express yang berjalan dan mengikuti kontrak API di atas.
+
+
+Dokumen ini dicocokkan dengan kode sumber index yang diberikan. Checklist di atas merupakan langkah pengujian yang perlu dijalankan setelah backend tersedia, bukan hasil pengujian integrasi yang sudah dilakukan.
