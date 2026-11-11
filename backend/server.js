@@ -28,21 +28,25 @@ const sequelize = new Sequelize(
 // ==================================
 
 const Student = sequelize.define("Student", {
+  student_number: {
+    type: DataTypes.STRING(30),
+    allowNull: false,
+    unique: true
+  },
   full_name: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     allowNull: false
   },
   email: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(150),
     allowNull: false,
     unique: true
   },
   major: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     allowNull: false
   }
 });
-
 // ==================================
 // 3. CREATE STUDENT
 // ==================================
