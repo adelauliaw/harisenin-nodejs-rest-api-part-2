@@ -102,7 +102,7 @@ Jadi urutannya sederhana:
 
 ## 5. Siapkan backend Node.js
 
-Buka folder `backend` menggunakan VS Code. Pilih **Terminal → New Terminal**, lalu jalankan:
+Buka folder ` cd backend` menggunakan VS Code. Pilih **Terminal → New Terminal**, lalu jalankan:
 
 ```bash
 npm init -y
