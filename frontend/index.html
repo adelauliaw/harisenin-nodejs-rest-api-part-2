@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Management System</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6fb;color:#172033;font-family:Arial,sans-serif}
+.wrap{max-width:1120px;margin:38px auto;padding:0 20px}h1{margin:0 0 8px;font-size:30px}
+.muted{color:#64748b;font-size:14px}.layout{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:24px}
+.card{background:#fff;border:1px solid #e3e8f0;border-radius:14px;padding:20px;box-shadow:0 8px 24px #1b2b4510}
+h2{font-size:18px;margin:0 0 14px}label{display:block;font-size:13px;font-weight:bold;margin:13px 0 6px}
+input{width:100%;padding:11px;border:1px solid #d5dce7;border-radius:8px;font-size:14px}
+button{border:0;border-radius:8px;padding:10px 13px;font-weight:bold;cursor:pointer}
+.primary{background:#3157d5;color:white}.light{background:#edf1f7;color:#334155}.danger{background:#fff0f0;color:#c03939}
+.actions{display:flex;gap:8px;margin-top:18px}.actions button{flex:1}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.tablebox{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}
+th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #edf0f4;font-size:13px}
+th{color:#64748b;background:#f8fafc}td button{padding:7px 9px;margin-right:4px;font-size:12px}
+.notice{padding:10px 12px;border-radius:8px;margin:14px 0;font-size:13px;display:none}
+.notice.show{display:block}.ok{background:#e8f7ef;color:#176b45}.err{background:#fff0f0;color:#a52d2d}
+.status{font-size:12px;color:#64748b}.empty{text-align:center;color:#64748b;padding:28px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Student Management System</h1>
+  <p class="muted">Kelola data mahasiswa: tambah, lihat, ubah, dan hapus.</p>
+  <p class="status" id="status">Menghubungkan ke API...</p>
+  <div id="notice" class="notice"></div>
+
+  <div class="layout">
+    <section class="card">
+      <h2 id="formTitle">Tambah Mahasiswa</h2>
+      <form id="studentForm">
+        <input type="hidden" id="studentId">
+        <label for="studentNumber">Student Number</label>
+        <input id="studentNumber" required maxlength="30" placeholder="Contoh: 2026001">
+        <label for="fullName">Full Name</label>
+        <input id="fullName" required maxlength="100" placeholder="Nama lengkap mahasiswa">
+        <label for="email">Email</label>
+        <input id="email" type="email" required maxlength="150" placeholder="nama@email.com">
+        <label for="major">Major</label>
+        <input id="major" required maxlength="100" placeholder="Contoh: Informatika">
+        <div class="actions">
+          <button class="primary" id="saveBtn" type="submit">Simpan</button>
+          <button class="light" id="cancelBtn" type="button" hidden>Batal</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="top">
+        <div><h2>Daftar Mahasiswa</h2><span class="muted" id="count">Memuat data...</span></div>
+        <button class="light" id="refreshBtn" type="button">Refresh</button>
+      </div>
+      <div class="tablebox">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Student Number</th><th>Full Name</th><th>Email</th><th>Major</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="studentRows"><tr><td colspan="6" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const API_URL = "http://localhost:3000/api/students";
+const form = document.getElementById("studentForm");
+const rows = document.getElementById("studentRows");
+const notice = document.getElementById("notice");
+let students = [];
+
+function showMessage(text, type="ok") {
+  notice.textContent = text;
+  notice.className = `notice show ${type}`;
+}
+async function apiRequest(url, options={}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+  });
+  const text = await response.text();
+  const result = text ? JSON.parse(text) : {};
+  if (!response.ok) throw new Error(result.message || `Request gagal: ${response.status}`);
+  return result;
+}
+function safe(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+async function loadStudents() {
+  try {
+    const result = await apiRequest(API_URL);
+    students = result.data || [];
+    document.getElementById("status").textContent = "API terhubung";
+    document.getElementById("count").textContent = `${students.length} mahasiswa`;
+    renderStudents();
+  } catch (error) {
+    document.getElementById("status").textContent = "API belum terhubung";
+    document.getElementById("count").textContent = "Periksa server.js";
+    rows.innerHTML = `<tr><td colspan="6" class="empty">${safe(error.message)}</td></tr>`;
+  }
+}
+function renderStudents() {
+  if (!students.length) {
+    rows.innerHTML = '<tr><td colspan="6" class="empty">Belum ada data mahasiswa.</td></tr>';
+    return;
+  }
+  rows.innerHTML = students.map(s => `
+    <tr>
+      <td>${safe(s.id)}</td>
+      <td>${safe(s.student_number)}</td>
+      <td>${safe(s.full_name)}</td>
+      <td>${safe(s.email)}</td>
+      <td>${safe(s.major)}</td>
+      <td>
+        <button class="light" data-action="edit" data-id="${safe(s.id)}">Edit</button>
+        <button class="danger" data-action="delete" data-id="${safe(s.id)}">Hapus</button>
+      </td>
+    </tr>
+  `).join("");
+}
+function resetForm() {
+  form.reset();
+  document.getElementById("studentId").value = "";
+  document.getElementById("formTitle").textContent = "Tambah Mahasiswa";
+  document.getElementById("saveBtn").textContent = "Simpan";
+  document.getElementById("cancelBtn").hidden = true;
+}
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const id = document.getElementById("studentId").value;
+  const student = {
+    student_number: document.getElementById("studentNumber").value.trim(),
+    full_name: document.getElementById("fullName").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    major: document.getElementById("major").value.trim()
+  };
+  try {
+    if (id) {
+      await apiRequest(`${API_URL}/${id}`, {method:"PUT", body:JSON.stringify(student)});
+      showMessage("Data mahasiswa berhasil diperbarui.");
+    } else {
+      await apiRequest(API_URL, {method:"POST", body:JSON.stringify(student)});
+      showMessage("Mahasiswa berhasil ditambahkan.");
+    }
+    resetForm();
+    await loadStudents();
+  } catch (error) {
+    showMessage(error.message, "err");
+  }
+});
+rows.addEventListener("click", async event => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const student = students.find(s => String(s.id) === button.dataset.id);
+  if (button.dataset.action === "edit" && student) {
+    document.getElementById("studentId").value = student.id;
+    document.getElementById("studentNumber").value = student.student_number;
+    document.getElementById("fullName").value = student.full_name;
+    document.getElementById("email").value = student.email;
+    document.getElementById("major").value = student.major;
+    document.getElementById("formTitle").textContent = "Edit Mahasiswa";
+    document.getElementById("saveBtn").textContent = "Simpan Perubahan";
+    document.getElementById("cancelBtn").hidden = false;
+  }
+  if (button.dataset.action === "delete") {
+    if (!confirm("Yakin ingin menghapus data mahasiswa ini?")) return;
+    try {
+      await apiRequest(`${API_URL}/${button.dataset.id}`, {method:"DELETE"});
+      showMessage("Data mahasiswa berhasil dihapus.");
+      await loadStudents();
+    } catch (error) {
+      showMessage(error.message, "err");
+    }
+  }
+});
+document.getElementById("cancelBtn").addEventListener("click", resetForm);
+document.getElementById("refreshBtn").addEventListener("click", loadStudents);
+loadStudents();
+</script>
+</body>
+</html>
